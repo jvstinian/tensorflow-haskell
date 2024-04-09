@@ -47,13 +47,14 @@ extra-source-files:  third_party/tensorflow/tensorflow/compiler/jit/*.proto
                    , third_party/tensorflow/tensorflow/core/protobuf/*.proto
                    , third_party/tensorflow/tensorflow/core/protobuf/tpu/*.proto
                    , third_party/tensorflow/tensorflow/core/tfrt/fallback/*.proto
+                   , third_party/tensorflow/tensorflow/core/tfrt/graph_executor/*.proto
                    , third_party/tensorflow/tensorflow/core/tpu/kernels/*.proto
                    , third_party/tensorflow/tensorflow/core/util/*.proto
                    , third_party/tensorflow/tensorflow/core/util/autotune_maps/*.proto
                    , third_party/tensorflow/tensorflow/core/util/quantization/*.proto
                    , third_party/tensorflow/tensorflow/distribute/experimental/rpc/proto/*.proto
                    , third_party/tensorflow/tensorflow/dtensor/proto/*.proto
-                   , third_party/tensorflow/tensorflow/lite/experimental/acceleration/configuration/*.proto
+                   , third_party/tensorflow/tensorflow/lite/acceleration/configuration/*.proto
                    , third_party/tensorflow/tensorflow/lite/python/metrics/*.proto
                    , third_party/tensorflow/tensorflow/lite/toco/*.proto
                    , third_party/tensorflow/tensorflow/lite/toco/logging/*.proto
@@ -278,6 +279,8 @@ library
                      , Proto.Tensorflow.Core.Profiler.Protobuf.PodViewer_Fields
                      , Proto.Tensorflow.Core.Profiler.Protobuf.StepsDb
                      , Proto.Tensorflow.Core.Profiler.Protobuf.StepsDb_Fields
+                     , Proto.Tensorflow.Core.Profiler.Protobuf.Task
+                     , Proto.Tensorflow.Core.Profiler.Protobuf.Task_Fields
                      , Proto.Tensorflow.Core.Profiler.Protobuf.TfDataStats
                      , Proto.Tensorflow.Core.Profiler.Protobuf.TfDataStats_Fields
                      , Proto.Tensorflow.Core.Profiler.Protobuf.TfFunction
@@ -332,8 +335,8 @@ library
                      , Proto.Tensorflow.Core.Protobuf.ErrorCodes_Fields
                      , Proto.Tensorflow.Core.Protobuf.Fingerprint
                      , Proto.Tensorflow.Core.Protobuf.Fingerprint_Fields
-                     , Proto.Tensorflow.Core.Protobuf.GraphDebugInfo
-                     , Proto.Tensorflow.Core.Protobuf.GraphDebugInfo_Fields
+                     , Proto.Tensorflow.Core.Framework.GraphDebugInfo
+                     , Proto.Tensorflow.Core.Framework.GraphDebugInfo_Fields
                      , Proto.Tensorflow.Core.Protobuf.Master
                      , Proto.Tensorflow.Core.Protobuf.Master_Fields
                      , Proto.Tensorflow.Core.Protobuf.MasterService
@@ -420,8 +423,8 @@ library
                      , Proto.Tensorflow.Distribute.Experimental.Rpc.Proto.TfRpcService_Fields
                      , Proto.Tensorflow.Dtensor.Proto.Layout
                      , Proto.Tensorflow.Dtensor.Proto.Layout_Fields
-                     , Proto.Tensorflow.Lite.Experimental.Acceleration.Configuration.Configuration
-                     , Proto.Tensorflow.Lite.Experimental.Acceleration.Configuration.Configuration_Fields
+                     , Proto.Tensorflow.Lite.Acceleration.Configuration.Configuration
+                     , Proto.Tensorflow.Lite.Acceleration.Configuration.Configuration_Fields
                      , Proto.Tensorflow.Lite.Python.Metrics.ConverterErrorData
                      , Proto.Tensorflow.Lite.Python.Metrics.ConverterErrorData_Fields
                      , Proto.Tensorflow.Lite.Toco.Logging.TocoConversionLog
@@ -502,6 +505,8 @@ library
                      , Proto.Tensorflow.Tsl.Protobuf.Histogram_Fields
                      , Proto.Tensorflow.Tsl.Protobuf.RpcOptions
                      , Proto.Tensorflow.Tsl.Protobuf.RpcOptions_Fields
+                     , Proto.Tensorflow.Tsl.Protobuf.Status
+                     , Proto.Tensorflow.Tsl.Protobuf.Status_Fields
                      , Proto.Tensorflow.Tsl.Protobuf.TestLog
                      , Proto.Tensorflow.Tsl.Protobuf.TestLog_Fields
   autogen-modules:     Proto.Tensorflow.Compiler.Jit.XlaActivity
@@ -708,6 +713,8 @@ library
                      , Proto.Tensorflow.Core.Profiler.Protobuf.PodViewer_Fields
                      , Proto.Tensorflow.Core.Profiler.Protobuf.StepsDb
                      , Proto.Tensorflow.Core.Profiler.Protobuf.StepsDb_Fields
+                     , Proto.Tensorflow.Core.Profiler.Protobuf.Task
+                     , Proto.Tensorflow.Core.Profiler.Protobuf.Task_Fields
                      , Proto.Tensorflow.Core.Profiler.Protobuf.TfDataStats
                      , Proto.Tensorflow.Core.Profiler.Protobuf.TfDataStats_Fields
                      , Proto.Tensorflow.Core.Profiler.Protobuf.TfFunction
@@ -762,8 +769,8 @@ library
                      , Proto.Tensorflow.Core.Protobuf.ErrorCodes_Fields
                      , Proto.Tensorflow.Core.Protobuf.Fingerprint
                      , Proto.Tensorflow.Core.Protobuf.Fingerprint_Fields
-                     , Proto.Tensorflow.Core.Protobuf.GraphDebugInfo
-                     , Proto.Tensorflow.Core.Protobuf.GraphDebugInfo_Fields
+                     , Proto.Tensorflow.Core.Framework.GraphDebugInfo
+                     , Proto.Tensorflow.Core.Framework.GraphDebugInfo_Fields
                      , Proto.Tensorflow.Core.Protobuf.Master
                      , Proto.Tensorflow.Core.Protobuf.Master_Fields
                      , Proto.Tensorflow.Core.Protobuf.MasterService
@@ -850,8 +857,8 @@ library
                      , Proto.Tensorflow.Distribute.Experimental.Rpc.Proto.TfRpcService_Fields
                      , Proto.Tensorflow.Dtensor.Proto.Layout
                      , Proto.Tensorflow.Dtensor.Proto.Layout_Fields
-                     , Proto.Tensorflow.Lite.Experimental.Acceleration.Configuration.Configuration
-                     , Proto.Tensorflow.Lite.Experimental.Acceleration.Configuration.Configuration_Fields
+                     , Proto.Tensorflow.Lite.Acceleration.Configuration.Configuration
+                     , Proto.Tensorflow.Lite.Acceleration.Configuration.Configuration_Fields
                      , Proto.Tensorflow.Lite.Python.Metrics.ConverterErrorData
                      , Proto.Tensorflow.Lite.Python.Metrics.ConverterErrorData_Fields
                      , Proto.Tensorflow.Lite.Toco.Logging.TocoConversionLog
@@ -932,6 +939,8 @@ library
                      , Proto.Tensorflow.Tsl.Protobuf.Histogram_Fields
                      , Proto.Tensorflow.Tsl.Protobuf.RpcOptions
                      , Proto.Tensorflow.Tsl.Protobuf.RpcOptions_Fields
+                     , Proto.Tensorflow.Tsl.Protobuf.Status
+                     , Proto.Tensorflow.Tsl.Protobuf.Status_Fields
                      , Proto.Tensorflow.Tsl.Protobuf.TestLog
                      , Proto.Tensorflow.Tsl.Protobuf.TestLog_Fields
   build-depends:  proto-lens == 0.7.*
