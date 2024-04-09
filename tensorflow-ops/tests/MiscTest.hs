@@ -18,7 +18,7 @@
 module Main where
 
 import Control.Monad.IO.Class (liftIO)
-import Data.Int (Int32)
+import Data.Int (Int16, Int32)
 import Test.Framework (defaultMain, Test)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit ((@=?))
@@ -33,7 +33,7 @@ testMultipleOutputs :: Test
 testMultipleOutputs = testCase "testMultipleOutputs" $
     runSession $ do
         (values, indices) <-
-            run $ CoreOps.topKV2 (constant [1, 4] [10, 40, 20, 30]) 2
+            run $ CoreOps.topKV2 (constant [1, 4] [10, 40, 20, 30]) (scalar (2 :: Int16))
         liftIO $ [40, 30] @=? V.toList (values :: V.Vector Float)
         liftIO $ [1, 3] @=? V.toList (indices :: V.Vector Int32)
 
