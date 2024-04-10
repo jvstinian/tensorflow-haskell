@@ -52,7 +52,7 @@ import Data.Foldable (for_)
 import Data.Maybe (fromMaybe)
 import Data.Typeable (Typeable)
 import Data.Word (Word8)
-import Foreign (Ptr, FunPtr, nullPtr, castPtr, with)
+import Foreign (Ptr, FunPtr, nullPtr, castPtr, with, freeHaskellFunPtr)
 import Foreign.ForeignPtr (newForeignPtr_)
 import Foreign.Marshal.Alloc (free)
 import Foreign.Marshal.Array (withArrayLen, peekArray, mallocArray, copyArray)
@@ -71,6 +71,8 @@ import Proto.Tensorflow.Core.Framework.Types (DataType(..))
 import Proto.Tensorflow.Core.Protobuf.Config (ConfigProto)
 
 import qualified TensorFlow.Internal.Raw as Raw
+
+import Debug.Trace(trace)
 
 -- Interpret a vector of bytes as a TF_TString struct and copy the pointed
 -- to string into a ByteString.
@@ -212,29 +214,54 @@ run session graph inputNamesData outputNames targetNames = do
     -- and output tensors before they are passed to 'createTensorData'.
     mask_ $
         -- Inputs.
-        mapM (resolveOutput graph . fst) inputNamesData >>= \inputs ->
-        withArrayLen inputs $ \nInputs cInputs ->
-        mapM (createRawTensor . snd) inputNamesData >>= \inputTensors ->
-        withArrayLen inputTensors $ \_ cInputTensors ->
+        trace "trace FFI.run: entering FFI.run" $ mapM (resolveOutput graph . fst) inputNamesData >>= \inputs ->
+        trace "trace FFI.run: process inputs" $ withArrayLen inputs $ \nInputs cInputs ->
+        bracket (trace "trace FFI.run: process c inputs" $ mapM (createRawTensor . snd) inputNamesData)
+                (trace "trace FFI.run: delete tensors" $ mapM_ Raw.deleteTensor {- \_ -> putStrLn "Not deleting tensors"-})
+                (\inputTensors -> 
+                       trace "trace FFI.run: process input tensors" $ withArrayLen inputTensors $ \_ cInputTensors ->
+                       -- Outputs.
+                       trace "trace FFI.run: process c input tensors" $ mapM (resolveOutput graph) outputNames >>= \outputs ->
+                       trace "trace FFI.run: process output tensors" $ withArrayLen outputs $ \nOutputs cOutputs ->
+                       -- outputTensors is an array of null Tensor pointers that will be filled
+                       -- by the call to Raw.run.
+                       trace "trace FFI.run: process c output tensors" $ withArrayLen (replicate nOutputs nullTensor) $ \_ cOutputTensors ->
+                       -- Target operations.
+                       trace "trace FFI.run: process targets" $ mapM (resolveOperation graph) targetNames >>= \targets ->
+                       trace "trace FFI.run: map targets" $ withArrayLen targets $ \nTargets cTargets -> do
+                           trace "trace FFI.run: run and check status" $ checkStatus $ Raw.run
+                               session
+                               nullPtr -- RunOptions proto.
+                               cInputs  cInputTensors  (safeConvert nInputs)
+                               cOutputs cOutputTensors (safeConvert nOutputs)
+                               cTargets                (safeConvert nTargets)
+                               nullPtr -- RunMetadata.
+                           outTensors <- trace "trace FFI.run: peekArray" $ peekArray nOutputs cOutputTensors
+                           trace "trace FFI.run: create output tensor data" $ mapM createTensorData outTensors
+                )
+        {-
+        trace "trace FFI.run: process c inputs" $ mapM (createRawTensor . snd) inputNamesData >>= \inputTensors ->
+        trace "trace FFI.run: process input tensors" $ withArrayLen inputTensors $ \_ cInputTensors ->
         -- Outputs.
-        mapM (resolveOutput graph) outputNames >>= \outputs ->
-        withArrayLen outputs $ \nOutputs cOutputs ->
+        trace "trace FFI.run: process c input tensors" $ mapM (resolveOutput graph) outputNames >>= \outputs ->
+        trace "trace FFI.run: process output tensors" $ withArrayLen outputs $ \nOutputs cOutputs ->
         -- outputTensors is an array of null Tensor pointers that will be filled
         -- by the call to Raw.run.
-        withArrayLen (replicate nOutputs nullTensor) $ \_ cOutputTensors ->
+        trace "trace FFI.run: process c output tensors" $ withArrayLen (replicate nOutputs nullTensor) $ \_ cOutputTensors ->
         -- Target operations.
-        mapM (resolveOperation graph) targetNames >>= \targets ->
-        withArrayLen targets $ \nTargets cTargets -> do
-            checkStatus $ Raw.run
+        trace "trace FFI.run: process targets" $ mapM (resolveOperation graph) targetNames >>= \targets ->
+        trace "trace FFI.run: map targets" $ withArrayLen targets $ \nTargets cTargets -> do
+            trace "trace FFI.run: run and check status" $ checkStatus $! Raw.run
                 session
                 nullPtr -- RunOptions proto.
                 cInputs  cInputTensors  (safeConvert nInputs)
                 cOutputs cOutputTensors (safeConvert nOutputs)
                 cTargets                (safeConvert nTargets)
                 nullPtr -- RunMetadata.
-            mapM_ Raw.deleteTensor inputTensors
-            outTensors <- peekArray nOutputs cOutputTensors
-            mapM createTensorData outTensors
+            trace "trace FFI.run: delete tensors" $ mapM_ Raw.deleteTensor inputTensors
+            outTensors <- trace "trace FFI.run: peekArray" $ peekArray nOutputs cOutputTensors
+            trace "trace FFI.run: create output tensor data" $ mapM createTensorData outTensors
+        -}
   where
 
     nullTensor = Raw.Tensor nullPtr
@@ -280,18 +307,33 @@ safeConvert x =
 -- | Create a Raw.Tensor from a TensorData.
 createRawTensor :: TensorData -> IO Raw.Tensor
 createRawTensor (TensorData dims dt byteVec) =
-    withArrayLen (map safeConvert dims) $ \cdimsLen cdims -> do
+    trace "trace FFI.createRawTensor: entering" $ withArrayLen (map safeConvert dims) $ \cdimsLen cdims -> do
         let len = S.length byteVec
-        dest <- mallocArray len
-        S.unsafeWith byteVec $ \x -> copyArray dest x len
-        Raw.newTensor (toEnum $ fromEnum dt)
-                      cdims (safeConvert cdimsLen)
-                      (castPtr dest) (safeConvert len)
-                      tensorDeallocFunPtr nullPtr
+        dest <- trace ("trace FFI.createRawTensor: calling mallocArray with len=" ++ show len) $ mallocArray len
+        trace "trace FFI.createRawTensor: calling unsafeWith" $ S.unsafeWith byteVec $ \x -> trace "trace FFI.createRawTensor: calling copyArray" $ copyArray dest x len
+        {-
+        tensorDeallocFunPtr0 <- Raw.wrapTensorDealloc $ trace "calling tensorDeallocFunPtr" $ \x _ _ -> (putStrLn "freeing pointer" >> free x)
+        t <- trace "trace FFI.createRawTensor: calling newTensor" $ Raw.newTensor (toEnum $ fromEnum dt)
+                                                                                  cdims (safeConvert cdimsLen)
+                                                                                  (castPtr dest) (safeConvert len)
+                                                                                  tensorDeallocFunPtr0 nullPtr
+        freeHaskellFunPtr tensorDeallocFunPtr0
+        trace ("trace FFI.createRawTensor: size of tensor is " ++ show (Raw.sizeOfTensor t)) $ return t
+        -}
+        bracket (Raw.wrapTensorDealloc $ \x _ _ -> {-free x-}putStrLn "In deacclocator, not doing anything")
+                freeHaskellFunPtr
+                (\tensorDeallocFunPtr0 -> trace "trace FFI.createRawTensor: calling newTensor" $ Raw.newTensor (toEnum $ fromEnum dt)
+                                                                                                                cdims (safeConvert cdimsLen)
+                                                                                                                (castPtr dest) (safeConvert len)
+                                                                                                                tensorDeallocFunPtr0 nullPtr
+                )
 
+{-
 {-# NOINLINE tensorDeallocFunPtr #-}
 tensorDeallocFunPtr :: FunPtr Raw.TensorDeallocFn
-tensorDeallocFunPtr = unsafePerformIO $ Raw.wrapTensorDealloc $ \x _ _ -> free x
+tensorDeallocFunPtr = unsafePerformIO $ Raw.wrapTensorDealloc $ trace "calling tensorDeallocFunPtr" $ \x _ _ -> (putStrLn "freeing pointer" >> free x)
+-- tensorDeallocFunPtr = unsafePerformIO $ trace "calling tensorDeallocFunPtr" $ Raw.wrapTensorDealloc $ \_ _ _ -> return ()
+-}
 
 -- | Create a TensorData from a Raw.Tensor.
 --

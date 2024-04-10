@@ -130,6 +130,8 @@ import Proto.Tensorflow.Core.Framework.Types (DataType(..))
 import qualified TensorFlow.Internal.Raw as Raw
 import qualified TensorFlow.Internal.FFI as FFI
 
+import Debug.Trace(trace)
+
 type ResourceHandle = ResourceHandleProto
 
 -- | Dynamic type.
@@ -258,7 +260,7 @@ simpleEncode (Shape xs) v =
         then error $ printf
             "simpleEncode: bad vector length for shape %v: expected=%d got=%d"
             (show xs) (product xs) (S.length v)
-        else TensorData (FFI.TensorData xs dt (S.unsafeCast v))
+        else trace "trace simpleEncode: creating TensorData" $ TensorData (FFI.TensorData xs dt (trace "trace simpleEncode: performing unsafe cast" $ S.unsafeCast v))
   where
     dt = tensorType (undefined :: a)
 

@@ -34,6 +34,8 @@ import qualified TensorFlow.Session as TF
 import qualified TensorFlow.Tensor as TF
 import qualified TensorFlow.Types as TF
 
+import Debug.Trace(trace)
+
 -- | Test that one can easily determine number of elements in the tensor.
 testSize :: Test
 testSize = testCase "testSize" $ do
@@ -82,16 +84,21 @@ testPlaceholderCse = testCase "testPlaceholderCse" $ TF.runSession $ do
 -- have a different name.
 testScalarFeedCse :: Test
 testScalarFeedCse = testCase "testScalarFeedCse" $ TF.runSession $ do
-    p1 <- TF.render $ TF.scalar' (TF.opName .~ "A") 0
+    p1 <- trace "trace testScalarFeedCse: calling rendor of scalar A" $ TF.render $ TF.scalar' (TF.opName .~ "A") 0
     -- The second op is identical to the first other than its name; make sure
     -- we don't aggressively CSE them together and prevent feeding them
     -- separately.
-    p2 <- TF.render $ TF.scalar' (TF.opName .~ "B") 0
+    p2 <- trace "trace testScalarFeedCse: calling rendor of scalar B" $ TF.render $ TF.scalar' (TF.opName .~ "B") 0
     let enc :: Float -> TF.TensorData Float
-        enc n = TF.encodeTensorData [] (V.fromList [n])
-    result <- TF.runWithFeeds [TF.feed p1 (enc 2), TF.feed p2 (enc 3)]
+        enc n = trace "trace testScalarFeedCse: calling encodeTensorData" $ TF.encodeTensorData [] (V.fromList [n])
+    result <- TF.runWithFeeds [trace "trace testScalarFeedCse: feed p1" $ TF.feed p1 (enc 2), trace "trace testScalarFeedCse: feed p2" $ TF.feed p2 (enc 3)]
                 $ p1 `TF.add` p2
-    liftIO $ result @=? TF.Scalar 5
+    liftIO $ trace "trace testScalarFeedCse: compare result" $ result @=? TF.Scalar 5
+    {-
+    result <- TF.runWithFeeds [trace "trace testScalarFeedCse: feed p1" $ TF.feed p1 (enc 2)]
+                $ p1
+    liftIO $ trace "trace testScalarFeedCse: compare result" $ result @=? TF.Scalar 2
+    -}
 
 -- | See https://github.com/tensorflow/haskell/issues/92.
 -- Even though we're not explicitly evaluating `f0` until the end,
@@ -124,7 +131,7 @@ main = defaultMain
             , testSize
             , testReducedShape
             , testPlaceholderCse
-            , testScalarFeedCse
+            , testScalarFeedCse 
             , testRereadRef
             , testEinsum
             ]

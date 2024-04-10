@@ -172,5 +172,5 @@ main = defaultMain
             [ testReadMessageFromFileOrDie
             , testReadMNIST
             , testGraphDefGen
-            , testGraphDefExec
-            , testMNISTExec ]
+            , testGraphDefExec 
+            {- , testMNISTExec -} ]

@@ -67,6 +67,8 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import qualified TensorFlow.Internal.FFI as FFI
 
+import Debug.Trace(trace)
+
 -- | An action for logging.
 type Tracer = Builder.Builder -> IO ()
 
@@ -206,22 +208,24 @@ runWithFeeds feeds t = do
     -- call, since all nodes in t and its inputs/deps will be rendered by the
     -- above call to getNodes.
     fetch <- build $ getFetch t
-    runFetchWithFeeds feeds ns fetch
+    trace "trace: running runFetchWithFeeds" $ runFetchWithFeeds feeds ns fetch
 
 runFetchWithFeeds :: MonadIO m => [Feed] -> Set NodeName -> Fetch a -> SessionT m a
 runFetchWithFeeds feeds target (Fetch fetch restore) = do
-    extend
+    trace "trace runFetchWithFeeds: running extend" $ extend
+    -- extend
     let feeds' = fixFeeds feeds
     let fetchNames = encodeUtf8 <$> Set.toList fetch
         targetNames = toNodeNames $ Set.toList target
-    state <- Session ask
-    runResult <- liftIO $ FFI.run (rawSession state)
-                                  (rawGraph   state)
-                                  feeds'
-                                  fetchNames
-                                  targetNames
-    let resultTensorsMap = Map.fromList $ zip (Set.toList fetch) runResult
-    return $ restore resultTensorsMap
+    state <- trace "trace runFetchWithFeeds: running session ask" $ Session ask
+    runResult <- liftIO $ trace "trace runFetchWithFeeds: ffi run" $ FFI.run (rawSession state)
+                                                                     (rawGraph   state)
+                                                                     feeds'
+                                                                     fetchNames
+                                                                     targetNames
+    let resultTensorsMap = trace "trace runFetchWithFeeds: result tensors" $ Map.fromList $ zip (Set.toList fetch) runResult
+    trace "trace runFetchWithFeeds: return" $ return $ restore resultTensorsMap
+    -- return $ restore resultTensorsMap
 
 toNodeNames :: [NodeName] -> [ByteString]
 toNodeNames = map (encodeUtf8 . unNodeName)

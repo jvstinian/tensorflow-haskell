@@ -25,11 +25,11 @@
 
 import Control.Monad (replicateM)
 import Control.Monad.IO.Class (liftIO)
-import Data.Int (Int64)
+import Data.Int (Int64, Int32)
 import Test.Framework (defaultMain, Test)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.Framework.Providers.QuickCheck2 (testProperty)
-import Test.HUnit ((@=?))
+import Test.HUnit ((@=?), assertBool)
 import Test.QuickCheck (Arbitrary(..), listOf, suchThat)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
@@ -40,6 +40,9 @@ import qualified TensorFlow.Ops as TF
 import qualified TensorFlow.Session as TF
 import qualified TensorFlow.Tensor as TF
 import qualified TensorFlow.Types as TF
+import qualified TensorFlow.Nodes as TF
+
+import Debug.Trace(trace)
 
 instance Arbitrary B.ByteString where
     arbitrary = B.pack <$> arbitrary
@@ -52,22 +55,27 @@ testFFIRoundTrip = testCase "testFFIRoundTrip" $
         let floatData = V.fromList [1..6 :: Float]
             stringData = V.fromList [B8.pack (show x) | x <- [1..6::Integer]]
             boolData = V.fromList [True, True, False, True, False, False]
-        f <- TF.placeholder [2,3]
-        s <- TF.placeholder [2,3]
-        b <- TF.placeholder [2,3]
-        let feeds = [ TF.feed f (TF.encodeTensorData [2,3] floatData)
+
+        f <- TF.placeholder [2,3] :: TF.Session (TF.Tensor TF.Value Float)
+        s <- TF.placeholder [2,3] :: TF.Session (TF.Tensor TF.Value B8.ByteString)
+        b <- TF.placeholder [2,3] :: TF.Session (TF.Tensor TF.Value Bool)
+        
+        let feeds = [ TF.feed f (trace "encoding float data" $ TF.encodeTensorData [2,3] floatData)
                     , TF.feed s (TF.encodeTensorData [2,3] stringData)
-                    , TF.feed b (TF.encodeTensorData [2,3] boolData)
-                    ]
+                    , TF.feed b (trace "encoding bool data" $ TF.encodeTensorData [2,3] boolData)
+                    ] :: [ TF.Feed ]
         -- Do something idempotent to the tensors to verify that tensorflow can
         -- handle the encoding. Originally this used `TF.identity`, but that
         -- wasn't enough to catch a bug in the encoding of Bool.
-        (f', s', b') <- TF.runWithFeeds feeds
-                            (f `TF.add` 0, TF.identity s, TF.select b b b)
+        liftIO $ putStrLn $ "float data input: " ++ (show floatData)
+        (f', s', b') <- trace "trace FFIRountTrid: runWithFeeds" $ TF.runWithFeeds (trace ("FFIRountTrid: " ++ (show $ length feeds)) feeds)
+                                                                                   (f `TF.add` 0, TF.identity s, TF.select b b b)
+        
+        trace ("trace FFIRountTrid: " ++ (show f')) $ return () 
         liftIO $ do
-            floatData @=? f'
+            trace "trace FFIRountTrid: compare float data" $ floatData @=? f'
             stringData @=? s'
-            boolData @=? b'
+            trace "trace FFIRountTrid: compare float data" $ boolData @=? b'
 
 
 data TensorDataInputs a = TensorDataInputs [Int64] (V.Vector a)
@@ -95,6 +103,10 @@ testEncodeDecodeQcFloat = testProperty "testEncodeDecodeQcFloat"
 testEncodeDecodeQcInt64 :: Test
 testEncodeDecodeQcInt64 = testProperty "testEncodeDecodeQcInt64"
     (encodeDecodeProp :: TensorDataInputs Int64 -> Bool)
+
+testEncodeDecodeQcInt32 :: Test
+testEncodeDecodeQcInt32 = testProperty "testEncodeDecodeQcInt32"
+    (encodeDecodeProp :: TensorDataInputs Int32 -> Bool)
 
 testEncodeDecodeQcString :: Test
 testEncodeDecodeQcString = testProperty "testEncodeDecodeQcString"
@@ -126,9 +138,10 @@ typeConstraintTests = testCase "type constraints" $ do
 
 main :: IO ()
 main = defaultMain
-            [ testFFIRoundTrip
+            [ testFFIRoundTrip -- TODO (JS): There's a problem here
             , testEncodeDecodeQcFloat
+            , testEncodeDecodeQcInt32
             , testEncodeDecodeQcInt64
             , testEncodeDecodeQcString
-            , typeConstraintTests
+            , typeConstraintTests 
             ]

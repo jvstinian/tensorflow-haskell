@@ -20,6 +20,9 @@ category:            Machine Learning
 build-type:          Simple
 cabal-version:       2.0
 extra-source-files: third_party/tensorflow/c/c_api.h
+                    , third_party/tensorflow/c/tf_tensor_internal.h
+                    , third_party/tensorflow/c/tf_tensor.cc
+                    , third_party/tensorflow/core/framework/tensor.cc
 
 library
   hs-source-dirs:   src

@@ -116,6 +116,9 @@ instance Storable Tensor where
     peek p = fmap Tensor (peek (castPtr p))
     poke p (Tensor t) = poke (castPtr p) t
 
+sizeOfTensor :: Tensor -> Int
+sizeOfTensor = sizeOf
+
 -- A synonym for the int64_t type, which is used in the TensorFlow API.
 -- On some platforms it's `long`; on others (e.g., Mac OS X) it's `long long`;
 -- and as far as Haskell is concerned, those are distinct types (`CLong` vs
